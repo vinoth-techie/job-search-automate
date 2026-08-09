@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+jobs.csv
+jobs.json
+jobs_no_salary.json
+instahyre_jobs.json
+naukri_storage.json
+instahyre_storage.json
+*.storage.json
+.pytest_cache/
+.DS_Store

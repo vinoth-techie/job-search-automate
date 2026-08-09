@@ -1,0 +1,1 @@
+"""Instahyre job extractor package."""

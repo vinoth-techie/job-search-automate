@@ -1,0 +1,1 @@
+"""Naukri job extractor package."""

@@ -1,0 +1,15 @@
+https://www.naukri.com/react-dot-js-jobs?jobAge=1&experience=3
+https://www.naukri.com/git-jobs?experience=3&jobAge=1
+https://www.naukri.com/java-script-jobs?jobAge=1&experience=3
+https://www.naukri.com/python-jobs?jobAge=1&experience=3
+https://www.naukri.com/data-structure-jobs?jobAge=1&experience=3
+https://www.naukri.com/aws-jobs?jobAge=1&experience=3
+https://www.naukri.com/software-engineering-jobs?jobAge=1&experience=3
+https://www.naukri.com/java-jobs?jobAge=1&experience=3
+https://www.naukri.com/software-solutions-jobs?experience=3&jobAge=1
+https://www.naukri.com/software-development-jobs?experience=3&jobAge=1&cityTypeGid=17&cityTypeGid=97&cityTypeGid=183&cityTypeGid=184&cityTypeGid=9011
+https://www.naukri.com/debugging-jobs?jobAge=1&experience=3&cityTypeGid=17&cityTypeGid=97&cityTypeGid=183&cityTypeGid=184
+https://www.naukri.com/postgresql-jobs?experience=3&jobAge=1&cityTypeGid=17&cityTypeGid=97&cityTypeGid=183&cityTypeGid=184&cityTypeGid=9011
+https://www.naukri.com/microservices-jobs?jobAge=1&experience=4
+https://www.naukri.com/code-review-jobs?jobAge=1&experience=3&cityTypeGid=17&cityTypeGid=97&cityTypeGid=183&cityTypeGid=184&cityTypeGid=187&cityTypeGid=9011
+https://www.naukri.com/spring-boot-jobs?experience=4
