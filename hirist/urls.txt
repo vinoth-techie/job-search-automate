@@ -1,0 +1,17 @@
+# Hirist skill pages (same cities as Naukri: Bengaluru, Chennai, Hyderabad, Coimbatore via loc ids)
+# Filters in URL: minexp=2, maxexp=3, posting=3 (last 3 days)
+https://www.hirist.tech/k/python-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/java-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/nodejs-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/spring-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/reactjs-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/full-stack-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/node.js-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/restful-api-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/expressjs-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/aws-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/microservices-architecture-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/backend-architecture-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/system-design-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/api-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
+https://www.hirist.tech/k/fastapi-jobs?ref=topnavigation&minexp=2&maxexp=3&posting=3
