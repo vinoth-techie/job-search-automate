@@ -3,10 +3,15 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+# Generated outputs under output/<portal>/
+output/**/*.json
+# Legacy paths
 jobs.csv
 jobs.json
 jobs_no_salary.json
 instahyre_jobs.json
+hirist_jobs.json
+skills.json
 naukri_storage.json
 instahyre_storage.json
 *.storage.json

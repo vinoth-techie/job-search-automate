@@ -80,7 +80,7 @@ def _request_json(
             last_error = RuntimeError(
                 f"Instahyre HTTP {exc.code} for {url}: {body[:200]}"
             )
-            if exc.code in {429, 502, 503, 504} and attempt + 1 < max_retries:
+            if exc.code in {429, 500, 502, 503, 504} and attempt + 1 < max_retries:
                 wait = min(60.0, (2**attempt) * 3.0)
                 print(
                     f"  rate-limited/HTTP {exc.code}; "
@@ -102,7 +102,16 @@ def _request_json(
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Instahyre returned non-JSON for {url}") from exc
+            last_error = RuntimeError(f"Instahyre returned non-JSON for {url}")
+            if attempt + 1 < max_retries:
+                wait = min(20.0, (2**attempt) * 1.5)
+                print(
+                    f"  non-JSON response; "
+                    f"retry in {wait:.1f}s ({attempt + 1}/{max_retries})"
+                )
+                time.sleep(wait)
+                continue
+            raise last_error from exc
 
         if not isinstance(data, dict) or not isinstance(data.get("objects"), list):
             raise RuntimeError(f"Unexpected Instahyre payload shape for {url}")
@@ -137,6 +146,8 @@ def fetch_search_pages(
     seen_ids: set[str] = set()
     total_count = 0
     offset = 0
+    stopped_early = False
+    hit_max_pages = False
 
     for page_index in range(max_pages):
         if page_index > 0 and page_delay_seconds > 0:
@@ -162,6 +173,12 @@ def fetch_search_pages(
 
         new_ids = _job_ids(payload)
         if not new_ids or new_ids.issubset(seen_ids):
+            stopped_early = True
+            print(
+                f"  warning: pagination stopped early at offset={offset} "
+                f"(duplicate/empty page; unique={len(seen_ids)}"
+                f"{f', total_count={total_count}' if total_count else ''})"
+            )
             break
 
         seen_ids.update(new_ids)
@@ -185,6 +202,26 @@ def fetch_search_pages(
             offset = int((next_query.get("offset") or [str(offset + limit)])[0])
         except (TypeError, ValueError):
             offset += limit
+
+        if page_index + 1 >= max_pages:
+            hit_max_pages = True
+
+    if hit_max_pages:
+        print(
+            f"  warning: hit max_pages={max_pages} for years={years}; "
+            f"fetched {len(seen_ids)}"
+            f"{f'/{total_count}' if total_count else ''} unique jobs. "
+            "Raise --max-pages if results look incomplete."
+        )
+    elif (
+        not stopped_early
+        and total_count > 0
+        and len(seen_ids) < total_count
+    ):
+        print(
+            f"  warning: fetched {len(seen_ids)}/{total_count} unique jobs "
+            f"for years={years}; feed may be incomplete."
+        )
 
     return SearchBatch(
         years=str(years),

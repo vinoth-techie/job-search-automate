@@ -1,0 +1,4 @@
+# Wellfound SEO role/location pages (role + location in the path).
+# Pagination uses ?page=N. Playwright must clear DataDome/Turnstile first.
+https://wellfound.com/role/l/backend-engineer/india
+https://wellfound.com/role/l/software-engineer/india

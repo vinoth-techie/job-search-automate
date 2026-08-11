@@ -26,9 +26,16 @@ from instahyre.locations import (
     matching_cities,
 )
 from instahyre.output import print_jobs_by_experience_city_company, write_jobs_json
-from instahyre.skills_bank import DEFAULT_SKILLS_FILE, update_skills_bank
+from instahyre.skills_bank import (
+    DEFAULT_SKILLS_FILE,
+    top_skills_summary,
+    update_skills_bank,
+)
+from paths import REPO_ROOT, portal_output_dir
 
-DEFAULT_URLS_FILE = "urls.txt"
+_PKG_DIR = Path(__file__).resolve().parent
+DEFAULT_URLS_FILE = str(REPO_ROOT / "naukri" / "urls.txt")
+DEFAULT_OUT = str(portal_output_dir("instahyre") / "jobs.json")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,7 +45,8 @@ def build_parser() -> argparse.ArgumentParser:
             "(opportunities feed). Runs years=3 and years=4 by default, "
             "paginates via offset, ignores test/support titles, keeps "
             "target cities, optionally filters by interest keywords from "
-            "urls.txt, groups as years → city → company."
+            f"{DEFAULT_URLS_FILE}, groups as years → city → company. "
+            f"Writes to {DEFAULT_OUT}."
         )
     )
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -58,8 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--out",
-        default="instahyre_jobs.json",
-        help="Output JSON path (default: instahyre_jobs.json)",
+        default=DEFAULT_OUT,
+        help=f"Output JSON path (default: {DEFAULT_OUT})",
     )
     parser.add_argument(
         "--experience-years",
@@ -162,19 +170,30 @@ def main(argv: list[str] | None = None) -> int:
 
     keywords: list[str] = []
     if not args.no_keyword_filter and args.urls_file:
-        urls = _load_urls_file(args.urls_file)
+        urls_path = Path(args.urls_file)
+        if not urls_path.exists():
+            print(
+                f"Error: urls file not found: {args.urls_file}. "
+                "Pass --no-keyword-filter or --urls-file '' to skip "
+                "the skill keyword filter.",
+                file=sys.stderr,
+            )
+            return 1
+        urls = _load_urls_file(urls_path)
         keywords = interest_keywords_from_urls(urls)
-        if urls:
+        if not urls or not keywords:
             print(
-                f"Interest keywords from {args.urls_file} "
-                f"({len(urls)} URLs): {', '.join(keywords[:12])}"
-                f"{'…' if len(keywords) > 12 else ''}"
+                f"Error: no usable skill URLs/keywords in {args.urls_file}. "
+                "Pass --no-keyword-filter or --urls-file '' to skip "
+                "the skill keyword filter.",
+                file=sys.stderr,
             )
-        else:
-            print(
-                f"No URLs in {args.urls_file}; "
-                "running without skill keyword filter."
-            )
+            return 1
+        print(
+            f"Interest keywords from {args.urls_file} "
+            f"({len(urls)} URLs): {', '.join(keywords[:12])}"
+            f"{'…' if len(keywords) > 12 else ''}"
+        )
 
     try:
         print(
@@ -235,9 +254,11 @@ def main(argv: list[str] | None = None) -> int:
 
     print_jobs_by_experience_city_company(grouped)
     out_path = write_jobs_json(jobs_by_exp, args.out, experience_keys=exp_keys)
+    unique_kept = sum(len(jobs_by_exp.get(key) or []) for key in exp_keys)
     print(
         f"Saved JSON: {out_path} "
-        f"({count_jobs_by_experience(grouped)} jobs)"
+        f"({unique_kept} unique jobs; "
+        f"{count_jobs_by_experience(grouped)} city placements)"
     )
 
     # Only skills from jobs that passed filters (keyword/title/city/dedupe).
@@ -248,9 +269,11 @@ def main(argv: list[str] | None = None) -> int:
         kept_for_skills, args.skills_out
     )
     print(
-        f"Saved skills bank (from kept jobs only): {skills_path} "
-        f"({prev_count} → {new_count} unique skills)"
+        f"Saved skills referrals: {skills_path} "
+        f"({new_count} skills from {len(kept_for_skills)} jobs; "
+        f"was {prev_count})"
     )
+    print(f"Top skills: {top_skills_summary(skills_path)}")
     return 0
 
 

@@ -26,9 +26,18 @@ from naukri.locations import (
     group_by_experience_city_company,
 )
 from naukri.output import print_jobs_by_experience_city_company, write_jobs_json
-from naukri.skills_bank import DEFAULT_SKILLS_FILE, update_skills_bank
+from naukri.skills_bank import (
+    DEFAULT_SKILLS_FILE,
+    top_skills_summary,
+    update_skills_bank,
+)
+from paths import REPO_ROOT, portal_output_dir
 
-DEFAULT_URLS_FILE = "urls.txt"
+_NAUKRI_DIR = REPO_ROOT / "naukri"
+_OUT_DIR = portal_output_dir("naukri")
+DEFAULT_URLS_FILE = str(_NAUKRI_DIR / "urls.txt")
+DEFAULT_OUT = str(_OUT_DIR / "jobs.json")
+DEFAULT_NO_SALARY_OUT = str(_OUT_DIR / "jobs_no_salary.json")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Extract Naukri jobs by opening listing page(s) in Playwright "
             "and capturing /jobapi/v3/search responses. "
-            "Pass many URLs via --urls-file (default: urls.txt). "
+            f"Pass many URLs via --urls-file (default: {DEFAULT_URLS_FILE}). "
             "Each URL is run with experience=3 and experience=4, then grouped as "
             "experience → city → company. Titles with test/support are ignored. "
             "Skills/title must match at least one keyword from that listing URL."
@@ -75,13 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--out",
-        default="jobs.json",
-        help="Matched jobs JSON (exp overlap + salary >= 10 LPA)",
+        default=DEFAULT_OUT,
+        help=f"Matched jobs JSON (default: {DEFAULT_OUT})",
     )
     parser.add_argument(
         "--no-salary-out",
-        default="jobs_no_salary.json",
-        help="Experience-matched jobs with Not disclosed salary",
+        default=DEFAULT_NO_SALARY_OUT,
+        help=f"No-salary jobs JSON (default: {DEFAULT_NO_SALARY_OUT})",
     )
     parser.add_argument(
         "--exp-min",
@@ -293,13 +302,17 @@ def main(argv: list[str] | None = None) -> int:
     no_salary_path = write_jobs_json(
         no_salary_by_exp, args.no_salary_out, experience_keys=exp_keys
     )
+    matched_unique = sum(len(matched_by_exp.get(key) or []) for key in exp_keys)
+    no_salary_unique = sum(len(no_salary_by_exp.get(key) or []) for key in exp_keys)
     print(
         f"Saved JSON: {out_path} "
-        f"({count_jobs_by_experience(matched_grouped)} jobs)"
+        f"({matched_unique} unique jobs; "
+        f"{count_jobs_by_experience(matched_grouped)} city placements)"
     )
     print(
         f"Saved no-salary JSON: {no_salary_path} "
-        f"({count_jobs_by_experience(no_salary_grouped)} jobs)"
+        f"({no_salary_unique} unique jobs; "
+        f"{count_jobs_by_experience(no_salary_grouped)} city placements)"
     )
 
     # Only skills from jobs that passed our filters (matched + no-salary).
@@ -311,9 +324,11 @@ def main(argv: list[str] | None = None) -> int:
         kept_for_skills, args.skills_out
     )
     print(
-        f"Saved skills bank (from kept jobs only): {skills_path} "
-        f"({prev_count} → {new_count} unique skills)"
+        f"Saved skills referrals: {skills_path} "
+        f"({new_count} skills from {len(kept_for_skills)} jobs; "
+        f"was {prev_count})"
     )
+    print(f"Top skills: {top_skills_summary(skills_path)}")
     return 0
 
 

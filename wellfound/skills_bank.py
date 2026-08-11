@@ -1,4 +1,4 @@
-"""Persistent skills bank with per-skill job referral counts (Instahyre)."""
+"""Persistent skills bank with per-skill job referral counts (Wellfound)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any, Iterable
 
 from paths import portal_output_dir
 
-DEFAULT_SKILLS_FILE = str(portal_output_dir("instahyre") / "skills.json")
+DEFAULT_SKILLS_FILE = str(portal_output_dir("wellfound") / "skills.json")
 
 
 def split_skills(raw: str | None) -> list[str]:
@@ -23,7 +23,6 @@ def split_skills(raw: str | None) -> list[str]:
 
 
 def collect_skill_counts(jobs: Iterable[dict[str, Any]]) -> dict[str, int]:
-    """Count jobs that list each skill (at most once per job)."""
     counts: dict[str, int] = {}
     names: dict[str, str] = {}
     for job in jobs:
@@ -62,30 +61,13 @@ def load_skill_counts(path: str | Path = DEFAULT_SKILLS_FILE) -> dict[str, int]:
             except (TypeError, ValueError):
                 out[cleaned] = 0
         return out
-
-    names: list[str] = []
-    if isinstance(data, list):
-        names = [str(item).strip() for item in data if str(item).strip()]
-    elif isinstance(data, dict) and isinstance(data.get("skills"), list):
-        names = [str(item).strip() for item in data["skills"] if str(item).strip()]
-    return {name: 0 for name in names}
-
-
-def load_skills(path: str | Path = DEFAULT_SKILLS_FILE) -> list[str]:
-    return sorted(load_skill_counts(path).keys(), key=lambda value: value.casefold())
+    return {}
 
 
 def update_skills_bank(
     jobs: Iterable[dict[str, Any]],
     path: str | Path = DEFAULT_SKILLS_FILE,
 ) -> tuple[Path, int, int]:
-    """
-    Rewrite skills.json from this run's kept jobs.
-
-    `skills` maps skill name → how many jobs referred to it.
-    Returns (path, previous_unique_count, new_unique_count).
-    Empty runs keep the previous bank so a zero-result fetch cannot wipe it.
-    """
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     previous = len(load_skill_counts(file_path))
@@ -112,6 +94,6 @@ def top_skills_summary(
 ) -> str:
     counts = load_skill_counts(path)
     if not counts:
-        return "(none)"
+        return "(none — SEO cards usually omit skills)"
     top = list(counts.items())[:limit]
     return ", ".join(f"{name}={count}" for name, count in top)

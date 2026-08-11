@@ -1,12 +1,14 @@
-"""Terminal and JSON output for extracted Instahyre jobs."""
+"""Terminal and JSON output for extracted Wellfound jobs."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
-from instahyre.locations import (
+from wellfound.locations import (
     TARGET_CITIES,
     count_jobs_by_experience,
     group_by_experience_city_company,
@@ -25,7 +27,19 @@ JOB_FIELDS = [
     "url",
 ]
 
+IST = ZoneInfo("Asia/Kolkata")
 SEPARATOR = "-" * 50
+
+
+def created_date_to_ist(created_ms: Any) -> str:
+    try:
+        ms = int(created_ms or 0)
+    except (TypeError, ValueError):
+        return ""
+    if ms <= 0:
+        return ""
+    dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone(IST)
+    return dt.strftime("%Y-%m-%d %H:%M:%S IST")
 
 
 def format_job_block(job: dict[str, Any]) -> str:
@@ -34,10 +48,11 @@ def format_job_block(job: dict[str, Any]) -> str:
             SEPARATOR,
             f"Title: {job.get('title', '')}",
             f"Company: {job.get('company', '')}",
-            f"Experience: {job.get('experience', '') or '(via years filter)'}",
+            f"Experience: {job.get('experience', '') or 'n/a'}",
             f"Location: {job.get('location', '')}",
             f"Salary: {job.get('salary', '') or 'Not disclosed'}",
             f"Posted: {job.get('posted', '') or 'n/a'}",
+            f"Created: {created_date_to_ist(job.get('createdDate'))}",
             f"Skills: {job.get('skills', '') or 'n/a'}",
             f"URL: {job.get('url', '')}",
             SEPARATOR,
@@ -46,7 +61,9 @@ def format_job_block(job: dict[str, Any]) -> str:
 
 
 def _job_row_for_json(job: dict[str, Any]) -> dict[str, Any]:
-    return {field: job.get(field, "") for field in JOB_FIELDS}
+    row = {field: job.get(field, "") for field in JOB_FIELDS}
+    row["createdDate"] = created_date_to_ist(job.get("createdDate"))
+    return row
 
 
 def print_jobs_by_experience_city_company(
@@ -60,7 +77,7 @@ def print_jobs_by_experience_city_company(
             for jobs in companies.values()
         )
         total += exp_count
-        print(f"\n########## years={exp_key} ({exp_count}) ##########")
+        print(f"\n########## bucket={exp_key} ({exp_count}) ##########")
         for city in TARGET_CITIES:
             companies = by_city.get(city) or {}
             city_count = sum(len(jobs) for jobs in companies.values())
@@ -72,7 +89,7 @@ def print_jobs_by_experience_city_company(
                 print(f"\n--- {company} ({len(jobs)}) ---")
                 for job in jobs:
                     print(format_job_block(job))
-    print(f"\nTotal jobs (years/city/company): {total}")
+    print(f"\nTotal jobs (bucket/city/company): {total}")
 
 
 def write_jobs_json(
@@ -81,7 +98,11 @@ def write_jobs_json(
     *,
     experience_keys: list[str] | None = None,
 ) -> Path:
-    json_path = Path(path) if path is not None else Path(__file__).resolve().parents[1] / "output" / "instahyre" / "jobs.json"
+    json_path = (
+        Path(path)
+        if path is not None
+        else Path(__file__).resolve().parents[1] / "output" / "wellfound" / "jobs.json"
+    )
     json_path.parent.mkdir(parents=True, exist_ok=True)
     grouped = group_by_experience_city_company(
         jobs_by_experience,
@@ -104,8 +125,8 @@ def write_jobs_json(
     return json_path
 
 
-# Re-export for callers that print counts
 __all__ = [
+    "created_date_to_ist",
     "format_job_block",
     "print_jobs_by_experience_city_company",
     "write_jobs_json",
