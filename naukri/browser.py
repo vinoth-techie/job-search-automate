@@ -12,8 +12,10 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from playwright.sync_api import BrowserContext, Page, Response, sync_playwright
 
+from paths import portal_output_dir
+
 SEARCH_API_MARKER = "/jobapi/v3/search"
-DEFAULT_STORAGE = "naukri_storage.json"
+DEFAULT_STORAGE = str(portal_output_dir("naukri") / "storage.json")
 DEFAULT_WAIT_SECONDS = 180
 DEFAULT_MAX_PAGES = 50
 
@@ -70,6 +72,28 @@ def _query_params(url: str) -> dict[str, str]:
     }
 
 
+def _normalize_search_token(value: str) -> str:
+    return (value or "").lower().replace(" ", "-").strip("-")
+
+
+def _tokens_equal(left: str, right: str) -> bool:
+    """Exact token match after normalizing spaces/hyphens (avoids java⊂javascript)."""
+    return _normalize_search_token(left) == _normalize_search_token(right)
+
+
+def _seo_matches_expected(seo_key: str, expected: str) -> bool:
+    """Match seoKey forms like 'python-jobs' or 'python' to listing slug 'python'."""
+    seo = _normalize_search_token(seo_key)
+    exp = _normalize_search_token(expected)
+    if not seo or not exp:
+        return False
+    if _tokens_equal(seo, exp):
+        return True
+    if seo.endswith("-jobs") and _tokens_equal(seo[: -len("-jobs")], exp):
+        return True
+    return False
+
+
 def _api_matches_listing(api_url: str, listing_url: str) -> bool:
     """
     Accept only the listing search API, not unrelated /jobapi/v3/search feeds.
@@ -82,17 +106,14 @@ def _api_matches_listing(api_url: str, listing_url: str) -> bool:
         return True
 
     params = _query_params(api_url)
-    keyword = (params.get("keyword") or params.get("k") or "").lower().replace(" ", "-")
-    seo_key = (params.get("seokey") or "").lower()
+    keyword = _normalize_search_token(
+        params.get("keyword") or params.get("k") or ""
+    )
+    seo_key = params.get("seokey") or ""
 
-    expected_compact = expected.replace(" ", "-")
-    if keyword and (
-        keyword == expected_compact
-        or expected_compact in keyword
-        or keyword in expected_compact
-    ):
+    if keyword and _tokens_equal(keyword, expected):
         return True
-    if seo_key and expected_compact in seo_key:
+    if seo_key and _seo_matches_expected(seo_key, expected):
         return True
     return False
 
@@ -155,13 +176,32 @@ def _job_ids_from_payload(payload: dict[str, Any]) -> set[str]:
     return ids
 
 
+def _payload_job_count(payload: dict[str, Any]) -> int:
+    details = payload.get("jobDetails")
+    return len(details) if isinstance(details, list) else 0
+
+
+def _preferred_payload(payloads: list[dict[str, Any]]) -> dict[str, Any]:
+    """Prefer the first capture that actually has jobs over an empty first hit."""
+    for payload in payloads:
+        if _payload_job_count(payload) > 0:
+            return payload
+    return payloads[0]
+
+
 def _attach_search_listener(
     page: Page,
     listing_url: str,
-) -> tuple[list[dict[str, Any]], list[CapturedSearchRequest | None], Any]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[CapturedSearchRequest | None],
+    list[bool],
+    Any,
+]:
     """Attach response listener before navigation; return shared capture state."""
     payloads: list[dict[str, Any]] = []
     template_box: list[CapturedSearchRequest | None] = [None]
+    template_has_jobs: list[bool] = [False]
     ignored = 0
 
     def on_response(response: Response) -> None:
@@ -178,7 +218,8 @@ def _attach_search_listener(
         if payload is None:
             return
         payloads.append(payload)
-        if template_box[0] is None:
+        has_jobs = _payload_job_count(payload) > 0
+        if template_box[0] is None or (has_jobs and not template_has_jobs[0]):
             request = response.request
             template_box[0] = CapturedSearchRequest(
                 url=request.url,
@@ -186,9 +227,10 @@ def _attach_search_listener(
                 headers=_headers_for_replay(request.headers),
                 post_data=request.post_data,
             )
+            template_has_jobs[0] = has_jobs
 
     page.on("response", on_response)
-    return payloads, template_box, on_response
+    return payloads, template_box, template_has_jobs, on_response
 
 
 def wait_for_search_capture(
@@ -199,6 +241,7 @@ def wait_for_search_capture(
     *,
     listing_url: str,
     timeout_seconds: int = DEFAULT_WAIT_SECONDS,
+    template_has_jobs: list[bool] | None = None,
 ) -> CaptureResult:
     """Wait until the listing-matching /jobapi/v3/search has been captured."""
     expected = expected_keyword_from_listing_url(listing_url)
@@ -210,7 +253,19 @@ def wait_for_search_capture(
         "If login or CAPTCHA appears, complete it in the browser window."
     )
     while time.time() < deadline:
-        if payloads and template_box[0] is not None:
+        has_jobs = any(_payload_job_count(p) > 0 for p in payloads)
+        if (
+            has_jobs
+            and template_box[0] is not None
+            and (template_has_jobs is None or template_has_jobs[0])
+        ):
+            break
+        # Near timeout, accept any matching capture (even empty).
+        if (
+            payloads
+            and template_box[0] is not None
+            and time.time() + 1.0 >= deadline
+        ):
             break
         page.wait_for_timeout(250)
 
@@ -316,8 +371,8 @@ def _capture_one_listing(
     max_pages: int,
     paginate: bool,
 ) -> list[dict[str, Any]]:
-    payloads_buf, template_box, on_response = _attach_search_listener(
-        page, listing_url
+    payloads_buf, template_box, template_has_jobs, on_response = (
+        _attach_search_listener(page, listing_url)
     )
     print(f"Opening {listing_url}")
     page.goto(listing_url, wait_until="domcontentloaded")
@@ -328,10 +383,11 @@ def _capture_one_listing(
         on_response,
         listing_url=listing_url,
         timeout_seconds=wait_seconds,
+        template_has_jobs=template_has_jobs,
     )
     assert capture.request_template is not None
 
-    first = capture.payloads[0]
+    first = _preferred_payload(capture.payloads)
     print(f"Captured search API: {capture.request_template.url}")
     print(f"First page jobs: {len(first.get('jobDetails') or [])}")
 
@@ -412,6 +468,7 @@ def collect_search_batches(
                         )
                     )
 
+            storage.parent.mkdir(parents=True, exist_ok=True)
             context.storage_state(path=str(storage))
             print(f"Saved browser session to {storage}")
             return batches

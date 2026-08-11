@@ -284,8 +284,9 @@ def matches_experience(
         return False
     if job_min is None:
         job_min = 0.0
+    # "3+ Yrs" has no upper bound — treat as open-ended, not a single year.
     if job_max is None:
-        job_max = job_min
+        job_max = float("inf")
     # Ranges overlap if job_min <= want_max and job_max >= want_min
     return job_min <= want_max and job_max >= want_min
 

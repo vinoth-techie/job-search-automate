@@ -54,6 +54,7 @@ def format_job_block(job: dict[str, Any]) -> str:
             f"Salary: {job.get('salary', '')}",
             f"Posted: {job.get('posted', '')}",
             f"Created: {created_date_to_ist(job.get('createdDate'))}",
+            f"Skills: {job.get('skills', '') or 'n/a'}",
             f"URL: {job.get('url', '')}",
             SEPARATOR,
         ]
@@ -94,7 +95,7 @@ def print_jobs_by_experience_city_company(
 
 def write_jobs_json(
     jobs_by_experience: dict[str, list[dict[str, Any]]],
-    path: str | Path = "jobs.json",
+    path: str | Path | None = None,
     *,
     experience_keys: list[str] | None = None,
 ) -> Path:
@@ -109,7 +110,8 @@ def write_jobs_json(
       "4": { ... }
     }
     """
-    json_path = Path(path)
+    json_path = Path(path) if path is not None else Path(__file__).resolve().parents[1] / "output" / "naukri" / "jobs.json"
+    json_path.parent.mkdir(parents=True, exist_ok=True)
     grouped = group_by_experience_city_company(
         jobs_by_experience,
         experience_keys=experience_keys,
